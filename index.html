@@ -1,0 +1,63 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#1b7f4b"><title>Angebotsjäger</title>
+<style>
+:root{--g:#1b7f4b;--bg:#f6f7f4;--c:#fff;--t:#1d2320;--m:#66706a}
+@media(prefers-color-scheme:dark){:root{--bg:#131715;--c:#1d2321;--t:#e8ece9;--m:#98a39c}}
+*{box-sizing:border-box}body{margin:0;font:16px system-ui,sans-serif;background:var(--bg);color:var(--t)}
+header{background:var(--g);color:#fff;padding:14px 16px}h1{margin:0;font-size:20px}header small{opacity:.85}
+main{max-width:720px;margin:0 auto;padding:14px}
+input{width:100%;padding:12px;font-size:17px;border-radius:10px;border:1px solid #8884;background:var(--c);color:var(--t)}
+.card{background:var(--c);border-radius:12px;padding:12px 14px;margin:10px 0;box-shadow:0 1px 3px #0002}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid #8882}
+.row:first-of-type{border:0}.best{color:var(--g);font-weight:700}.m{color:var(--m);font-size:13px}
+.p{font-weight:600;white-space:nowrap}button{padding:10px 14px;border:0;border-radius:10px;background:var(--g);color:#fff;font-size:15px}
+.warn{background:#ffb4;border-radius:10px;padding:10px;margin:10px 0}pre{white-space:pre-wrap;word-break:break-all;font-size:12px}
+.chips span{display:inline-block;background:#8882;border-radius:20px;padding:5px 11px;margin:3px 3px 0 0;font-size:14px;cursor:pointer}
+</style></head><body>
+<header><h1>🛒 Angebotsjäger</h1><small id="stand">lädt …</small></header>
+<main>
+<input id="q" type="search" placeholder="Produkt suchen, z. B. Hackfleisch" autofocus>
+<div class="chips" id="chips"></div><div id="warn"></div><div id="res"></div>
+<div class="card"><b>Benachrichtigung bei Bestpreis</b>
+<p class="m">Für Produkte aus der Watchlist. Auf dem iPhone muss die App zuerst über „Teilen → Zum Home-Bildschirm“ installiert sein.</p>
+<button id="pushbtn">Benachrichtigungen aktivieren</button><pre id="sub"></pre></div>
+</main>
+<script src="config.js"></script>
+<script>
+let D={angebote:[]};const $=id=>document.getElementById(id);
+const eur=n=>n.toFixed(2).replace(".",",")+" €";
+const pu=o=>(["g","ml"].includes(o.einheit)&&o.menge)?o.preis/o.menge*1000:o.preis;
+const gp=o=>(["g","ml"].includes(o.einheit)&&o.menge)?` · ${eur(pu(o))}/${o.einheit==="g"?"kg":"l"}`:"";
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function load(){
+  try{D=await (await fetch("data/offers.json",{cache:"no-cache"})).json()}catch{ $("stand").textContent="Keine Daten";return}
+  $("stand").textContent="Stand: "+D.stand.replace("T"," ")+" · Umkreis 5 km";
+  if(D.demo)$("warn").innerHTML='<div class="warn">Demo-Daten – noch keine echten Angebote geladen.</div>';
+  else if(D.fehler&&D.fehler.length)$("warn").innerHTML='<div class="warn">Teilweise Fehler beim Abruf: '+esc(D.fehler.slice(0,2).join("; "))+'</div>';
+  const terms=[...new Set(D.angebote.map(o=>o.suche))].slice(0,12);
+  $("chips").innerHTML=terms.map(t=>`<span>${esc(t)}</span>`).join("");
+  document.querySelectorAll(".chips span").forEach(s=>s.onclick=()=>{$("q").value=s.textContent;render()});
+  render();
+}
+function render(){
+  const q=$("q").value.trim().toLowerCase();
+  if(!q){$("res").innerHTML='<p class="m">Tippe ein Produkt ein – alle Märkte im Umkreis werden verglichen.</p>';return}
+  const hits=D.angebote.filter(o=>(o.produkt+" "+o.beschreibung).toLowerCase().includes(q)).sort((a,b)=>pu(a)-pu(b));
+  if(!hits.length){$("res").innerHTML='<div class="card">Nichts gefunden. Das Produkt ist evtl. noch nicht in der Suche – in <code>config.json</code> unter „watchlist“ eintragen.</div>';return}
+  $("res").innerHTML='<div class="card">'+hits.map((o,i)=>`<div class="row"><div><span class="${i?"":"best"}">${i?"":"★ "}${esc(o.markt)}</span><br><span class="m">${esc(o.produkt)}${gp(o)} · bis ${o.bis.split("-").reverse().slice(0,2).join(".")}.</span></div><div class="p ${i?"":"best"}">${eur(o.preis)}</div></div>`).join("")+"</div>";
+}
+$("q").oninput=render;
+function b64(s){const p="=".repeat((4-s.length%4)%4),r=atob((s+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from(r,c=>c.charCodeAt(0))}
+$("pushbtn").onclick=async()=>{
+  if(!window.VAPID_PUBLIC_KEY){$("sub").textContent="Erst VAPID_PUBLIC_KEY in docs/config.js eintragen (siehe README).";return}
+  if(!("serviceWorker" in navigator)||!("PushManager" in window)){$("sub").textContent="Push nicht verfügbar. iPhone: App erst zum Home-Bildschirm hinzufügen.";return}
+  if(await Notification.requestPermission()!=="granted"){$("sub").textContent="Erlaubnis abgelehnt.";return}
+  const reg=await navigator.serviceWorker.ready;
+  const s=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64(window.VAPID_PUBLIC_KEY)});
+  $("sub").textContent="Diesen Text kopieren und als Eintrag in der Liste PUSH_SUBSCRIPTIONS (GitHub-Secret) ergänzen:\n\n"+JSON.stringify(s);
+};
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js");
+load();
+</script></body></html>
