@@ -1,13 +1,31 @@
-const C = "aj-v1", FILES = ["./", "index.html", "config.js", "manifest.json"];
-self.addEventListener("install", e => e.waitUntil(caches.open(C).then(c => c.addAll(FILES))));
-self.addEventListener("fetch", e => {
-  const u = new URL(e.request.url);
-  if (u.pathname.includes("/data/")) { // Daten: erst Netz, sonst Cache
-    e.respondWith(fetch(e.request).then(r => { const x = r.clone(); caches.open(C).then(c => c.put(e.request, x)); return r; }).catch(() => caches.match(e.request)));
-  } else e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+// Offline-Cache (erst Netz, dann Cache) + Web-Push
+const CACHE = 'angebotsjaeger-v3';
+const FILES = ['./', 'index.html', 'logic.js', 'vocab.js', 'config.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png'];
+
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
+  self.skipWaiting();
 });
-self.addEventListener("push", e => {
-  const d = e.data ? e.data.json() : {title: "Angebotsjäger", body: ""};
-  e.waitUntil(self.registration.showNotification(d.title, {body: d.body, icon: "icon-192.png"}));
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
+  self.clients.claim();
 });
-self.addEventListener("notificationclick", e => { e.notification.close(); e.waitUntil(clients.openWindow("./")); });
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    fetch(e.request).then(r => {
+      const copy = r.clone();
+      caches.open(CACHE).then(c => c.put(e.request, copy));
+      return r;
+    }).catch(() => caches.match(e.request))
+  );
+});
+self.addEventListener('push', e => {
+  let d = { title: 'Angebotsjäger', body: '' };
+  try { if (e.data) d = e.data.json(); } catch (err) {}
+  e.waitUntil(self.registration.showNotification(d.title, { body: d.body, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'bestpreis' }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.matchAll({ type: 'window' }).then(w => w.length ? w[0].focus() : clients.openWindow('./')));
+});
