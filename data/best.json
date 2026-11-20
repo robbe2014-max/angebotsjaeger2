@@ -13,14 +13,14 @@
   "suche": "Hackfleisch"
  },
  "Butter": {
-  "markt": "ALDI SÜD",
-  "produkt": "Buttercroissant",
-  "beschreibung": "Zart blättrig und buttrig; je Stück",
-  "preis": 0.35,
-  "alt": 0.49,
-  "grundpreis": 0.35,
+  "markt": "Lidl",
+  "produkt": "Butter",
+  "beschreibung": "Gekühlt. Je 250 g",
+  "preis": 0.99,
+  "alt": null,
+  "grundpreis": 3.96,
   "menge": 1.0,
-  "einheit": "Stk",
+  "einheit": "kg",
   "von": "2026-11-22",
   "bis": "2026-11-28",
   "suche": "Butter"
