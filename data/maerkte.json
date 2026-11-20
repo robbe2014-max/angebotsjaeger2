@@ -1,0 +1,68 @@
+{
+ "LIDL": [
+  {
+   "name": "Lidl",
+   "strasse": "Fasaneriestraße",
+   "ort": "Hainburg"
+  },
+  {
+   "name": "Lidl",
+   "strasse": "",
+   "ort": ""
+  },
+  {
+   "name": "Lidl",
+   "strasse": "",
+   "ort": ""
+  }
+ ],
+ "REWE": [
+  {
+   "name": "REWE Viktor Likej",
+   "strasse": "",
+   "ort": ""
+  },
+  {
+   "name": "REWE Center",
+   "strasse": "Reitweg",
+   "ort": "Hanau"
+  },
+  {
+   "name": "REWE Michael Schmatloch",
+   "strasse": "Schulstraße",
+   "ort": "Großkrotzenburg"
+  },
+  {
+   "name": "REWE Savonov",
+   "strasse": "Daimlerstraße",
+   "ort": "Hainburg"
+  },
+  {
+   "name": "Rewe",
+   "strasse": "Dieselstraße",
+   "ort": "Seligenstadt"
+  }
+ ],
+ "ALDI": [
+  {
+   "name": "Aldi",
+   "strasse": "Marie-Curie-Straße",
+   "ort": "Großkrotzenburg"
+  },
+  {
+   "name": "Aldi Süd",
+   "strasse": "Steinheimer Straße",
+   "ort": "Seligenstadt"
+  },
+  {
+   "name": "Aldi Süd",
+   "strasse": "Philipp-Heck-Straße",
+   "ort": "Hanau"
+  },
+  {
+   "name": "Aldi Süd",
+   "strasse": "Aschaffenburger Straße",
+   "ort": ""
+  }
+ ]
+}
