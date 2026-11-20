@@ -115,6 +115,8 @@ def demo_offers():
 def _fold(x):
     x = unicodedata.normalize("NFD", x.lower().replace("ß", "ss"))
     return "".join(c for c in x if not unicodedata.combining(c))
+_EXCL = {"milch": re.compile(r"(reis|schnitte|schoko|broetchen|kakao|drink|pudding|riegel|kondens|shake)"),
+         "eier": re.compile(r"(advent|schoko|oster|nougat|marzipan|likoer|nudel|kuchen|salat|farbe)")}
 _FALSE = {"milch": re.compile(r"^(butter|kondens|kokos|sauer|schoko|mandel|hafer|soja|reis)")}
 def matches(term, o):
     """Treffer nur, wenn das Suchwort am ENDE eines Produktworts steht (Butter ≠ Butterkeks); Plural erlaubt."""
@@ -123,7 +125,8 @@ def matches(term, o):
     def ok(w, t):
         stem = re.sub(r"(en|n|e|s)$", "", t) if len(t) >= 6 else t
         return bool(re.search(re.escape(stem) + r"(?:en|n|e|s)?$", w)) and not (t in _FALSE and _FALSE[t].match(w))
-    return all(t and any(ok(w, t) for w in words) for t in toks)
+    full = _fold(o["produkt"] + " " + (o.get("beschreibung") or ""))
+    return all(t and any(ok(w, t) for w in words) and not (t in _EXCL and _EXCL[t].search(full)) for t in toks)
 
 def unit_price(o):
     """(Wert, Einheit) – Preis pro kg/l, wenn Menge bekannt, sonst None (gleiche Logik wie docs/logic.js)."""
