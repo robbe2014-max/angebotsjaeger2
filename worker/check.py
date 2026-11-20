@@ -145,16 +145,34 @@ def best_of(hits, today=None):
     return min(hits, key=lambda o: o["preis"])
 
 # ---------- Push ----------
+def load_subs(raw):
+    """Liest PUSH_SUBSCRIPTIONS tolerant: Liste [{...}], einzelner Eintrag {...}, mehrere {...},{...} ohne Klammern
+    oder als Text in Anführungszeichen. Gibt eine Liste von Abo-Objekten zurück (kaputte Einträge werden übersprungen)."""
+    raw = (raw or "").strip()
+    if not raw: return []
+    try: v = json.loads(raw)
+    except ValueError:
+        try: v = json.loads("[" + raw + "]")  # {..},{..} ohne äußere Klammern
+        except ValueError: print("PUSH_SUBSCRIPTIONS ist kein gültiges JSON – Push übersprungen"); return []
+    out = []
+    for x in (v if isinstance(v, list) else [v]):
+        if isinstance(x, str):
+            try: x = json.loads(x)
+            except ValueError: continue
+        if isinstance(x, dict) and x.get("endpoint"): out.append(x)
+    return out
+
 def push(title, body):
     if "--no-push" in sys.argv: print("(--no-push)", title, "-", body); return
-    subs = json.loads(os.environ.get("PUSH_SUBSCRIPTIONS") or "[]")
-    if not subs: print("Keine Push-Abos hinterlegt:", title, "-", body); return
-    from pywebpush import webpush, WebPushException
+    subs = load_subs(os.environ.get("PUSH_SUBSCRIPTIONS"))
+    if not subs: print("Keine gültigen Push-Abos hinterlegt:", title, "-", body); return
+    try: from pywebpush import webpush
+    except ImportError: print("pywebpush fehlt – Push übersprungen"); return
     claims = {"sub": os.environ.get("VAPID_SUBJECT", "mailto:privat@example.com")}
     for s in subs:
-        try:
+        try:  # ein Push-Fehler darf den Abruf nicht abbrechen
             webpush(s, json.dumps({"title": title, "body": body}), vapid_private_key=os.environ["VAPID_PRIVATE_KEY"], vapid_claims=dict(claims))
-        except WebPushException as e: print("Push-Fehler:", e)
+        except Exception as e: print("Push-Fehler:", type(e).__name__, str(e)[:200])
 
 def main():
     demo = "--demo" in sys.argv; OUT.mkdir(parents=True, exist_ok=True)
