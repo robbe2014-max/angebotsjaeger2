@@ -62,14 +62,14 @@
   const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const stem = t => (t.length >= 6 ? t.replace(/(en|n|e|s)$/, '') : t);
   // Bekannte Verwechslungen: Suchwort -> Wortanfänge, die NICHT gemeint sind
-  const FALSE_FRIENDS = { milch: /^(butter|kondens|kokos|sauer|schoko|mandel|hafer|soja|reis)/, kaese: /^(kaese)?(kuchen|sahne)/, brot: /^(brot)?(aufstrich)/ };
+  const FALSE_FRIENDS = { milch: /^(butter|kondens|kokos|sauer|schoko|mandel|hafer|soja|reis|muller|alpen)/, kase: /^(kase)?(kuchen|sahne)/, brot: /^(brot)?(aufstrich)/ };
   function wordMatches(word, t) {
     if (!new RegExp(esc(stem(t)) + '(?:en|n|e|s)?$').test(word)) return false;
     const ff = FALSE_FRIENDS[t];
     return !(ff && ff.test(word));
   }
   // Wenn diese Wörter irgendwo im Produktnamen stehen, ist es nicht das gemeinte Grundprodukt (Milch Reis, Advents-Eier ...)
-  const EXCLUDE = { milch: /(reis|schnitte|schoko|broetchen|kakao|drink|pudding|riegel|kondens|shake)/, eier: /(advent|schoko|oster|nougat|marzipan|likoer|nudel|kuchen|salat|farbe)/ };
+  const EXCLUDE = { milch: /(reis|schnitte|schoko|choco|brotchen|kakao|drink|pudding|riegel|kondens|shake|kokos|muller|mause|bonbon|freunde|alpen|kaffee|pflanz)/, eier: /(advent|schoko|oster|nougat|marzipan|likor|nudel|kuchen|salat|farbe)/ };
   function matches(itemName, offer) {
     const full = fold((offer.produkt || '') + ' ' + (offer.beschreibung || ''));
     const words = full.split(/[^a-z0-9]+/).filter(Boolean);
@@ -77,24 +77,24 @@
     const need = t.length ? t : [fold(itemName).trim()];
     return need.every(x => x && words.some(w => wordMatches(w, x)) && !(EXCLUDE[x] && EXCLUDE[x].test(full)));
   }
+  // marktguru: "grundpreis" = Preis pro kg/l/Stück (steht in "einheit"); "menge" ist nur die Stückzahl.
   function unitPrice(o) {
-    const q = Number(o.menge);
-    if (q > 0) {
-      if (o.einheit === 'g' || o.einheit === 'ml') return { v: o.preis / q * 1000, u: o.einheit === 'g' ? 'kg' : 'l' };
-      if (o.einheit === 'kg' || o.einheit === 'l') return { v: o.preis / q, u: o.einheit };
-    }
     const g = Number(o.grundpreis);
-    if (g > 0) return { v: g, u: '' };
-    return null;
+    return g > 0 && o.einheit ? { v: g, u: o.einheit } : null;
   }
-  // Sortiert Treffer: nach Grundpreis, wenn für alle vorhanden – sonst nach Packungspreis.
-  function rank(hits) {
-    const us = hits.map(unitPrice);
+  function todayISO() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  // Abgelaufene Angebote fliegen raus; schon gültige kommen vor noch nicht gültigen; dann nach Grundpreis (wenn alle gleiche Einheit), sonst Packungspreis.
+  function rank(hits, today) {
+    today = today || todayISO();
+    const live = hits.filter(o => !o.bis || o.bis >= today);
+    const us = live.map(unitPrice);
     const useUnit = us.length > 0 && us.every(Boolean) && new Set(us.map(u => u.u)).size === 1;
-    return hits.map((o, i) => ({ o, u: us[i], key: useUnit ? us[i].v : o.preis })).sort((a, b) => a.key - b.key).map(x => ({ ...x.o, _u: useUnit ? x.u : null }));
+    return live.map((o, i) => ({ o, u: us[i], later: (o.von || '') > today, key: useUnit ? us[i].v : o.preis }))
+      .sort((a, b) => (a.later - b.later) || (a.key - b.key))
+      .map(x => ({ ...x.o, _u: x.u, _later: x.later }));
   }
   function offersFor(itemName, offers) { return rank(offers.filter(o => matches(itemName, o))); }
 
-  const api = { fold, dl, makeVocab, fixWord, correct, tokens, matches, unitPrice, rank, offersFor };
+  const api = { fold, dl, makeVocab, fixWord, correct, tokens, matches, unitPrice, todayISO, rank, offersFor };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.AJ = api;
 })(typeof window !== 'undefined' ? window : globalThis);
