@@ -1,0 +1,24 @@
+name: Angebote abgleichen
+on:
+  schedule: [{cron: "30 5 * * *"}, {cron: "30 15 * * *"}]   # täglich 2x (UTC)
+  workflow_dispatch:
+permissions: {contents: write}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: pip install -r requirements.txt
+      - run: python worker/check.py
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          PUSH_SUBSCRIPTIONS: ${{ secrets.PUSH_SUBSCRIPTIONS }}
+          WATCHLIST: ${{ secrets.WATCHLIST }}
+          VAPID_SUBJECT: mailto:${{ secrets.VAPID_EMAIL }}
+      - run: |
+          git config user.name "angebotsjaeger"; git config user.email "bot@users.noreply.github.com"
+          git add -A docs/data 2>/dev/null || true
+          git add -A data 2>/dev/null || true
+          git diff --cached --quiet || (git commit -m "Angebote aktualisiert" && git push)
