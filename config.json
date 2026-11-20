@@ -1,0 +1,10 @@
+{
+  "plz": "63512",
+  "umkreis_km": 5,
+  "maerkte": ["Lidl", "REWE", "ALDI SÜD"],
+  "watchlist": [
+    {"suche": "Hackfleisch"},
+    {"suche": "Butter"}
+  ],
+  "zusatz_suchbegriffe": ["Milch", "Eier", "Nudeln"]
+}
