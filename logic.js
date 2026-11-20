@@ -68,11 +68,14 @@
     const ff = FALSE_FRIENDS[t];
     return !(ff && ff.test(word));
   }
+  // Wenn diese Wörter irgendwo im Produktnamen stehen, ist es nicht das gemeinte Grundprodukt (Milch Reis, Advents-Eier ...)
+  const EXCLUDE = { milch: /(reis|schnitte|schoko|broetchen|kakao|drink|pudding|riegel|kondens|shake)/, eier: /(advent|schoko|oster|nougat|marzipan|likoer|nudel|kuchen|salat|farbe)/ };
   function matches(itemName, offer) {
-    const words = fold((offer.produkt || '') + ' ' + (offer.beschreibung || '')).split(/[^a-z0-9]+/).filter(Boolean);
+    const full = fold((offer.produkt || '') + ' ' + (offer.beschreibung || ''));
+    const words = full.split(/[^a-z0-9]+/).filter(Boolean);
     const t = tokens(itemName);
     const need = t.length ? t : [fold(itemName).trim()];
-    return need.every(x => x && words.some(w => wordMatches(w, x)));
+    return need.every(x => x && words.some(w => wordMatches(w, x)) && !(EXCLUDE[x] && EXCLUDE[x].test(full)));
   }
   function unitPrice(o) {
     const q = Number(o.menge);
