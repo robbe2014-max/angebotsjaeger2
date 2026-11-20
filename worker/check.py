@@ -2,7 +2,7 @@
 """Holt die Wochenangebote (marktguru), filtert auf Lidl/REWE/ALDI SÜD, prüft die
 Märkte im Umkreis (OpenStreetMap) und verschickt Web-Push bei neuem Bestpreis.
 Aufruf:  python worker/check.py [--demo] [--no-push]"""
-import json, os, re, sys, time, datetime as dt
+import json, os, re, sys, time, unicodedata, datetime as dt
 from pathlib import Path
 import requests
 
@@ -112,6 +112,19 @@ def demo_offers():
     return [{"markt":m,"produkt":p,"beschreibung":"","preis":pr,"alt":None,"grundpreis":None,"menge":q,"einheit":u,
              "von":von,"bis":bis,"suche":p.split()[0]} for m,p,pr,q,u in rows]
 
+def _fold(x):
+    x = unicodedata.normalize("NFD", x.lower().replace("ß", "ss"))
+    return "".join(c for c in x if not unicodedata.combining(c))
+_FALSE = {"milch": re.compile(r"^(butter|kondens|kokos|sauer|schoko|mandel|hafer|soja|reis)")}
+def matches(term, o):
+    """Treffer nur, wenn das Suchwort am ENDE eines Produktworts steht (Butter ≠ Butterkeks); Plural erlaubt."""
+    words = [w for w in re.split(r"[^a-z0-9]+", _fold(o["produkt"] + " " + (o.get("beschreibung") or ""))) if w]
+    toks = [t for t in re.split(r"[^a-z0-9]+", _fold(term)) if len(t) >= 3 and not t.isdigit()] or [_fold(term).strip()]
+    def ok(w, t):
+        stem = re.sub(r"(en|n|e|s)$", "", t) if len(t) >= 6 else t
+        return bool(re.search(re.escape(stem) + r"(?:en|n|e|s)?$", w)) and not (t in _FALSE and _FALSE[t].match(w))
+    return all(t and any(ok(w, t) for w in words) for t in toks)
+
 def unit_price(o):
     """(Wert, Einheit) – Preis pro kg/l, wenn Menge bekannt, sonst None (gleiche Logik wie docs/logic.js)."""
     try: q = float(o.get("menge") or 0)
@@ -169,7 +182,7 @@ def main():
         s = w["suche"].lower()
         if s in best_seen: continue
         best_seen.add(s)
-        hits = [o for o in uniq if s in (o["produkt"] + " " + o["beschreibung"]).lower()]
+        hits = [o for o in uniq if matches(w["suche"], o)]
         if not hits: continue
         b = best_of(hits); best[w["suche"]] = b
         if w.get("max_preis") and b["preis"] > w["max_preis"]: continue
