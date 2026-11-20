@@ -55,20 +55,51 @@ def mg_search(term, keys):
     return out
 
 # ---------- Märkte im Umkreis (OpenStreetMap) ----------
+# Nominatim/Overpass verlangen einen eindeutigen User-Agent (der Browser-ähnliche von oben wird oft abgewiesen).
+OSM_UA = {"User-Agent": "angebotsjaeger-privat/1.0 (privater Preisvergleich, GitHub Actions)"}
+
+def geocode_plz(plz):
+    """Koordinaten der PLZ: erst Nominatim, dann Photon als Ersatz."""
+    fehler = []
+    try:
+        r = S.get("https://nominatim.openstreetmap.org/search", headers=OSM_UA, timeout=30,
+                  params={"postalcode": plz, "country": "Germany", "format": "json", "limit": 1})
+        if r.status_code == 200 and r.json(): g = r.json()[0]; return float(g["lat"]), float(g["lon"])
+        fehler.append(f"Nominatim HTTP {r.status_code}")
+    except Exception as e: fehler.append(f"Nominatim: {e}")
+    try:
+        r = S.get("https://photon.komoot.io/api/", headers=OSM_UA, timeout=30, params={"q": f"{plz} Deutschland", "limit": 1})
+        f = r.json()["features"]
+        if r.status_code == 200 and f: lon, lat = f[0]["geometry"]["coordinates"]; return float(lat), float(lon)
+        fehler.append(f"Photon HTTP {r.status_code}")
+    except Exception as e: fehler.append(f"Photon: {e}")
+    raise RuntimeError("PLZ nicht auffindbar (" + "; ".join(fehler) + ")")
+
 def stores_nearby():
     cache = OUT / "maerkte.json"
     if cache.exists() and time.time() - cache.stat().st_mtime < 30 * 86400:
         return json.loads(cache.read_text(encoding="utf-8"))
-    g = S.get("https://nominatim.openstreetmap.org/search", params={"postalcode": CFG["plz"], "country": "Germany", "format": "json", "limit": 1}, timeout=30).json()
-    lat, lon = float(g[0]["lat"]), float(g[0]["lon"]); R = int(CFG["umkreis_km"] * 1000)
+    lat, lon = geocode_plz(CFG["plz"]); R = int(CFG["umkreis_km"] * 1000)
     q = f'[out:json][timeout:40];(nwr["shop"~"supermarket|discount"](around:{R},{lat},{lon}););out center tags;'
-    els = S.post("https://overpass-api.de/api/interpreter", data={"data": q}, timeout=60).json()["elements"]
+    els = None; last = ""
+    for url in ("https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
+                "https://overpass.private.coffee/api/interpreter"):
+        for _ in range(2):  # Overpass ist oft kurz überlastet -> einmal wiederholen
+            try:
+                r = S.post(url, data={"data": q}, headers=OSM_UA, timeout=70)
+                if r.status_code == 200 and r.text.lstrip().startswith("{"):
+                    els = r.json()["elements"]; break
+                last = f"{url}: HTTP {r.status_code}"
+            except Exception as e: last = f"{url}: {e}"
+            time.sleep(5)
+        if els is not None: break
+    if els is None: raise RuntimeError("Overpass nicht erreichbar (" + last + ")")
     res = {}
     for e in els:
         t = e.get("tags", {}); n = t.get("brand") or t.get("name") or ""
         if norm(n) in WANTED:
             res.setdefault(norm(n), []).append({"name": t.get("name", n), "strasse": t.get("addr:street", ""), "ort": t.get("addr:city", "")})
-    cache.write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
+    if res: cache.write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")  # leere Ergebnisse nicht merken
     return res
 
 # ---------- Demo ----------
