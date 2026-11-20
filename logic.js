@@ -57,11 +57,22 @@
   function tokens(name) {
     return fold(name).split(/[^a-z0-9]+/).filter(t => t.length >= 3 && !/^\d+$/.test(t) && !/^\d+(g|kg|ml|l)$/.test(t) && !STOP.has(t));
   }
+  // Treffer nur, wenn das gesuchte Wort am ENDE eines Wortes steht (Hackfleisch, Rinderhackfleisch),
+  // nicht am Anfang (Butter ≠ Butterkeks, Eier ≠ Eiernudeln). Plural-Endungen sind erlaubt.
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const stem = t => (t.length >= 6 ? t.replace(/(en|n|e|s)$/, '') : t);
+  // Bekannte Verwechslungen: Suchwort -> Wortanfänge, die NICHT gemeint sind
+  const FALSE_FRIENDS = { milch: /^(butter|kondens|kokos|sauer|schoko|mandel|hafer|soja|reis)/, kaese: /^(kaese)?(kuchen|sahne)/, brot: /^(brot)?(aufstrich)/ };
+  function wordMatches(word, t) {
+    if (!new RegExp(esc(stem(t)) + '(?:en|n|e|s)?$').test(word)) return false;
+    const ff = FALSE_FRIENDS[t];
+    return !(ff && ff.test(word));
+  }
   function matches(itemName, offer) {
-    const hay = fold((offer.produkt || '') + ' ' + (offer.beschreibung || '') + ' ' + (offer.suche || ''));
+    const words = fold((offer.produkt || '') + ' ' + (offer.beschreibung || '')).split(/[^a-z0-9]+/).filter(Boolean);
     const t = tokens(itemName);
     const need = t.length ? t : [fold(itemName).trim()];
-    return need.every(x => x && hay.includes(x.length > 5 ? x.slice(0, x.length - 1) : x)); // grob: Plural/Endung tolerieren
+    return need.every(x => x && words.some(w => wordMatches(w, x)));
   }
   function unitPrice(o) {
     const q = Number(o.menge);

@@ -274,7 +274,7 @@ function render(){
       if(!items.length) return '';
       return `<div class="group"><h3>${catInfo(cn)[1]} ${cn}</h3>${items.map(i=>{
         const o = i.done ? null : dealFor(i.name);
-        const deal = o ? `<span class="deal">★ ${esc(o.markt)} ${eur(o.preis)}<span>${unitTxt(o)} · bis ${dm(o.bis)}</span></span>` : '';
+        const deal = o ? `<span class="deal">★ ${esc(o.markt)} ${eur(o.preis)}<span>${unitTxt(o)} · ${esc(o.produkt)} · bis ${dm(o.bis)}</span></span>` : '';
         return `
         <div class="item ${i.done?'done':''}" data-id="${i.id}">
           <button class="box" data-act="tog" aria-label="abhaken">${i.done?'✓':''}</button>
@@ -325,7 +325,7 @@ async function announceDeals(){
   if(store.get('aj_seen','') === sig) return;
   store.set('aj_seen', sig);
   const lines = ds.map(x => `${x.item.name}: ${x.o.markt} ${eur(x.o.preis)}`);
-  $('#popupBody').innerHTML = ds.map(x => `<div class="deal-row best"><div><span class="st">${esc(x.item.name)}</span><br><span class="m">${esc(x.o.markt)} · bis ${dm(x.o.bis)}</span></div><div class="p">${eur(x.o.preis)}</div></div>`).join('');
+  $('#popupBody').innerHTML = ds.map(x => `<div class="deal-row best"><div><span class="st">${esc(x.item.name)}</span><br><span class="m">${esc(x.o.markt)} · ${esc(x.o.produkt)} · bis ${dm(x.o.bis)}</span></div><div class="p">${eur(x.o.preis)}</div></div>`).join('');
   try{ $('#popup').showModal(); }catch(e){}
   try{
     if('Notification' in window && Notification.permission === 'granted' && 'serviceWorker' in navigator){
