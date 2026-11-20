@@ -115,9 +115,9 @@ def demo_offers():
 def _fold(x):
     x = unicodedata.normalize("NFD", x.lower().replace("ß", "ss"))
     return "".join(c for c in x if not unicodedata.combining(c))
-_EXCL = {"milch": re.compile(r"(reis|schnitte|schoko|broetchen|kakao|drink|pudding|riegel|kondens|shake)"),
-         "eier": re.compile(r"(advent|schoko|oster|nougat|marzipan|likoer|nudel|kuchen|salat|farbe)")}
-_FALSE = {"milch": re.compile(r"^(butter|kondens|kokos|sauer|schoko|mandel|hafer|soja|reis)")}
+_EXCL = {"milch": re.compile(r"(reis|schnitte|schoko|choco|brotchen|kakao|drink|pudding|riegel|kondens|shake|kokos|muller|mause|bonbon|freunde|alpen|kaffee|pflanz)"),
+         "eier": re.compile(r"(advent|schoko|oster|nougat|marzipan|likor|nudel|kuchen|salat|farbe)")}
+_FALSE = {"milch": re.compile(r"^(butter|kondens|kokos|sauer|schoko|mandel|hafer|soja|reis|muller|alpen)")}
 def matches(term, o):
     """Treffer nur, wenn das Suchwort am ENDE eines Produktworts steht (Butter ≠ Butterkeks); Plural erlaubt."""
     words = [w for w in re.split(r"[^a-z0-9]+", _fold(o["produkt"] + " " + (o.get("beschreibung") or ""))) if w]
@@ -129,18 +129,16 @@ def matches(term, o):
     return all(t and any(ok(w, t) for w in words) and not (t in _EXCL and _EXCL[t].search(full)) for t in toks)
 
 def unit_price(o):
-    """(Wert, Einheit) – Preis pro kg/l, wenn Menge bekannt, sonst None (gleiche Logik wie docs/logic.js)."""
-    try: q = float(o.get("menge") or 0)
-    except (TypeError, ValueError): q = 0
-    if q > 0:
-        if o.get("einheit") in ("g", "ml"): return o["preis"] / q * 1000, "kg" if o["einheit"] == "g" else "l"
-        if o.get("einheit") in ("kg", "l"): return o["preis"] / q, o["einheit"]
+    """(Preis pro kg/l/Stück, Einheit). marktguru: 'grundpreis' + 'einheit'; 'menge' ist nur die Stückzahl."""
     try: g = float(o.get("grundpreis") or 0)
     except (TypeError, ValueError): g = 0
-    return (g, "") if g > 0 else None
+    return (g, o["einheit"]) if g > 0 and o.get("einheit") else None
 
-def best_of(hits):
-    """Günstigstes Angebot: nach Grundpreis, wenn für alle Treffer (gleiche Einheit) bekannt – sonst nach Packungspreis."""
+def best_of(hits, today=None):
+    """Günstigstes derzeit GÜLTIGES Angebot (nach Grundpreis, wenn alle gleiche Einheit haben, sonst nach Packungspreis)."""
+    today = today or dt.date.today().isoformat()
+    hits = [o for o in hits if (o.get("von") or "") <= today <= (o.get("bis") or "9999")]
+    if not hits: return None
     us = [unit_price(o) for o in hits]
     if all(us) and len({u[1] for u in us}) == 1:
         return min(zip(hits, us), key=lambda x: x[1][0])[0]
@@ -175,8 +173,9 @@ def main():
         offers = [o for o in offers if norm(o["markt"]) in maerkte]
     seen, uniq = set(), []
     for o in offers:
-        k = (o["markt"], o["produkt"], o["preis"], o["bis"])
+        k = (norm(o["markt"]), o["produkt"], o["preis"], o["von"], o["bis"])
         if k not in seen: seen.add(k); uniq.append(o)
+    uniq = [o for o in uniq if not o["bis"] or o["bis"] >= dt.date.today().isoformat()]  # Abgelaufenes weglassen
     old, best_seen = {}, set()
     p = OUT / "best.json"
     if p.exists(): old = json.loads(p.read_text(encoding="utf-8"))
@@ -187,7 +186,9 @@ def main():
         best_seen.add(s)
         hits = [o for o in uniq if matches(w["suche"], o)]
         if not hits: continue
-        b = best_of(hits); best[w["suche"]] = b
+        b = best_of(hits)
+        if not b: continue  # nur Angebote, die jetzt gelten, lösen Push aus
+        best[w["suche"]] = b
         if w.get("max_preis") and b["preis"] > w["max_preis"]: continue
         if old.get(w["suche"], {}).get("preis") != b["preis"] or old.get(w["suche"], {}).get("markt") != b["markt"]:
             push(f"Bestpreis {w['suche']}", f"{b['produkt']} bei {b['markt']}: {b['preis']:.2f} € (bis {b['bis']})")
