@@ -1,28 +1,28 @@
 {
  "Hackfleisch": {
-  "markt": "ALDI SÜD",
-  "produkt": "Gemischtes Hackfleisch",
-  "beschreibung": "Vom Rind und Schwein; 500-g-Packung",
-  "preis": 3.99,
-  "alt": 4.99,
-  "grundpreis": 7.98,
+  "markt": "Lidl",
+  "produkt": "Hackfleisch Gemischt XXL",
+  "beschreibung": "Frisches Hackfleisch, gemischt  Je 800 g",
+  "preis": 4.99,
+  "alt": null,
+  "grundpreis": 6.24,
   "menge": 1.0,
   "einheit": "kg",
-  "von": "2026-11-15",
-  "bis": "2026-11-21",
+  "von": "2026-11-22",
+  "bis": "2026-11-28",
   "suche": "Hackfleisch"
  },
  "Butter": {
-  "markt": "REWE",
+  "markt": "Lidl",
   "produkt": "Butter",
-  "beschreibung": "je 250-g-Pckg.",
-  "preis": 1.29,
+  "beschreibung": "Gekühlt. Je 250 g",
+  "preis": 0.99,
   "alt": null,
-  "grundpreis": 5.16,
+  "grundpreis": 3.96,
   "menge": 1.0,
   "einheit": "kg",
-  "von": "2026-11-15",
-  "bis": "2026-11-21",
+  "von": "2026-11-22",
+  "bis": "2026-11-28",
   "suche": "Butter"
  }
 }
