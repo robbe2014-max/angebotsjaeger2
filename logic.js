@@ -89,7 +89,10 @@
   // Abgelaufene Angebote fliegen raus; schon gültige kommen vor noch nicht gültigen; dann nach Grundpreis (wenn alle gleiche Einheit), sonst Packungspreis.
   function rank(hits, today) {
     today = today || todayISO();
-    const live = hits.filter(o => !o.bis || o.bis >= today);
+    const alive = hits.filter(o => !o.bis || o.bis >= today);
+    // Einzelpackungen bevorzugen: Mehrfachpackungen nach Gewicht/Volumen (z. B. 12 x 1 l) nur, wenn es nichts anderes gibt
+    const isMulti = o => (o.einheit === 'kg' || o.einheit === 'l') && Number(o.menge) > 1;
+    const live = alive.some(o => !isMulti(o)) ? alive.filter(o => !isMulti(o)) : alive;
     const us = live.map(unitPrice);
     const useUnit = us.length > 0 && us.every(Boolean) && new Set(us.map(u => u.u)).size === 1;
     return live.map((o, i) => ({ o, u: us[i], later: (o.von || '') > today, key: useUnit ? us[i].v : o.preis }))
