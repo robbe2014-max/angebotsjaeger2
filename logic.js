@@ -70,12 +70,15 @@
   }
   // Wenn diese Wörter irgendwo im Produktnamen stehen, ist es nicht das gemeinte Grundprodukt (Milch Reis, Advents-Eier ...)
   const EXCLUDE = { milch: /(reis|schnitte|schoko|choco|brotchen|kakao|drink|pudding|riegel|kondens|shake|kokos|muller|mause|bonbon|freunde|alpen|kaffee|pflanz)/, eier: /(advent|schoko|oster|nougat|marzipan|likor|nudel|kuchen|salat|farbe)/ };
+  const UNIT = { milch: 'l', butter: 'kg', hackfleisch: 'kg', eier: 'Stk', wasser: 'l' };
   function matches(itemName, offer) {
     const full = fold((offer.produkt || '') + ' ' + (offer.beschreibung || ''));
     const words = full.split(/[^a-z0-9]+/).filter(Boolean);
     const t = tokens(itemName);
     const need = t.length ? t : [fold(itemName).trim()];
-    return need.every(x => x && words.some(w => wordMatches(w, x)) && !(EXCLUDE[x] && EXCLUDE[x].test(full)));
+    // Grundprodukte werden in einer festen Einheit verkauft (Milch pro Liter, Butter pro kg ...) – andere Einheit = anderes Produkt (z. B. Lindor Milch pro kg)
+    const unitOk = x => !(UNIT[x] && offer.einheit && offer.einheit !== UNIT[x]);
+    return need.every(x => x && words.some(w => wordMatches(w, x)) && !(EXCLUDE[x] && EXCLUDE[x].test(full)) && unitOk(x));
   }
   // marktguru: "grundpreis" = Preis pro kg/l/Stück (steht in "einheit"); "menge" ist nur die Stückzahl.
   function unitPrice(o) {
