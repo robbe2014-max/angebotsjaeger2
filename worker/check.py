@@ -141,6 +141,8 @@ def best_of(hits, today=None):
     today = today or dt.date.today().isoformat()
     hits = [o for o in hits if (o.get("von") or "") <= today <= (o.get("bis") or "9999")]
     if not hits: return None
+    multi = lambda o: o.get("einheit") in ("kg", "l") and float(o.get("menge") or 0) > 1  # z. B. 12 x 1 l
+    hits = [o for o in hits if not multi(o)] or hits  # Einzelpackungen bevorzugen
     us = [unit_price(o) for o in hits]
     if all(us) and len({u[1] for u in us}) == 1:
         return min(zip(hits, us), key=lambda x: x[1][0])[0]
